@@ -37,17 +37,19 @@ static struct i2c_driver oled_driver = {
     .id_table       = oled_id,
 };
 
-static struct i2c_board_info oled_i2c_board_info = {
-    I2C_BOARD_INFO(SSD1306_SLAVE_DEVICE_NAME, SSD1306_I2C_ADDR)
-};
+static struct i2c_board_info oled_i2c_board_info;
 
-int init_i2c_ssd1306(void)
+int init_i2c_ssd1306(uint8_t i2c_addr)
 {
     int ret = -1;
     i2c_adapter = i2c_get_adapter(SSD1306_USE_I2C_BUS);
 
     if( i2c_adapter != NULL )
     {
+        struct i2c_board_info tmp = {
+            I2C_BOARD_INFO(SSD1306_SLAVE_DEVICE_NAME, i2c_addr)
+        };
+        oled_i2c_board_info = tmp;
         i2c_client_oled = i2c_new_client_device(i2c_adapter, &oled_i2c_board_info);
 
         if( i2c_client_oled != NULL )
@@ -55,7 +57,7 @@ int init_i2c_ssd1306(void)
             i2c_add_driver(&oled_driver);
             ret = 0;
         }
-        
+
         i2c_put_adapter(i2c_adapter);
     }
     return ret;
@@ -70,6 +72,6 @@ void cleanup_i2c_ssd1306(void)
 void i2c_write_byte_ssd1306(uint8_t Cmd, uint8_t value)
 {
     unsigned char buf[2] = {Cmd, value};
-    if(i2c_client_oled) 
+    if(i2c_client_oled)
         i2c_master_send(i2c_client_oled, buf, 2);
 }

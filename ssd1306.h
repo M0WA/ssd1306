@@ -1,6 +1,6 @@
 #pragma once
 
-int init_ssd1306(void);
+int init_ssd1306(uint8_t i2c_addr);
 void cleanup_ssd1306(void);
 
 void clear_ssd1306(void);

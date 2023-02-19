@@ -19,6 +19,11 @@
     memset(oled_backbuffer, 0x00, sizeof(oled_backbuffer));
 static unsigned char oled_backbuffer[OLED_BACKBUF_SIZE];
 
+struct oled_cursor {
+    int x;
+    int line;
+    unsigned char *buf;
+};
 
 static void oled_write_reg(char data)
 {
@@ -66,7 +71,7 @@ static int init_oled_display(void)
 
 	oled_write_reg(0x8d);
 	oled_write_reg(0x14);
-	
+
 	oled_write_reg(0xaf);
     return 0;
 }
@@ -83,7 +88,15 @@ static void oled_commit_backbuffer(void)
             oled_write_data(*ptr);
             ptr++;
         }
-    } 
+    }
+}
+
+static size_t oled_backbuffer_pos(int x, int line)
+{
+    if (x >= OLED_WIDTH || line >= OLED_Page) {
+        return 0;
+    }
+    return x + ( line * OLED_WIDTH );
 }
 
 /*
@@ -98,10 +111,15 @@ static void oled_backbuffer_set_pixel(int x, int y, unsigned char col)
 }
 */
 
-static size_t oled_print_char(unsigned char c, unsigned char *buf)
+static void oled_print_char(unsigned char c, struct oled_cursor *cursor)
 {
-    if(c=='\n') {
-        c = ' ';
+    size_t pos;
+    size_t x_size = SSD1306_FONT_SIZE + FONT_PADDING_RIGHT;
+
+    if( c=='\n' ) {
+        cursor->line++;
+        cursor->x = 0;
+        return;
     }
 
     /*
@@ -112,8 +130,14 @@ static size_t oled_print_char(unsigned char c, unsigned char *buf)
     */
     c -= 0x20;  //or c -= ' ';
 
-    memcpy(buf, ssd1306_font[c], SSD1306_FONT_SIZE);
-    return SSD1306_FONT_SIZE + FONT_PADDING_RIGHT;
+    if( (cursor->x + x_size) > OLED_WIDTH ) {
+        cursor->line++;
+        cursor->x = 0;
+    }
+
+    pos = oled_backbuffer_pos(cursor->x, cursor->line);
+    memcpy(&cursor->buf[pos], ssd1306_font[c], SSD1306_FONT_SIZE);
+    cursor->x += x_size;
 }
 
 static void oled_set_cursor_pixel_line(char x, char line)
@@ -131,9 +155,9 @@ static void oled_set_cursor_pixel_line(char x, char line)
     }
 }
 
-int init_ssd1306(void)
+int init_ssd1306(uint8_t i2c_addr)
 {
-    init_i2c_ssd1306();
+    init_i2c_ssd1306(i2c_addr);
     init_oled_display();
     clear_ssd1306();
     set_string_ssd1306("hello", 5);
@@ -157,10 +181,14 @@ void cleanup_ssd1306(void)
 void set_string_ssd1306(unsigned char *str, size_t len)
 {
     size_t i;
-    unsigned char *buf = oled_backbuffer;
+    struct oled_cursor cursor = {
+        .x = 0,
+        .line = 0,
+        .buf = oled_backbuffer,
+    };
     OLED_CLEAR_BACKBUFFER()
-    for(i = 0; i < len; i++) {        
-        buf += oled_print_char(str[i], buf);
+    for(i = 0; i < len; i++) {
+        oled_print_char(str[i], &cursor);
     }
     oled_set_cursor_pixel_line(0, 0);
     oled_commit_backbuffer();
