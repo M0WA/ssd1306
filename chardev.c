@@ -24,6 +24,7 @@ static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
 
 static struct file_operations fops =
 {
+   .owner = THIS_MODULE,
    .open = dev_open,
    .read = dev_read,
    .write = dev_write,
@@ -59,7 +60,7 @@ int init_chardev(void){
 
 void cleanup_chardev(void){
    device_destroy(ebbcharClass, MKDEV(majorNumber, 0));     // remove the device
-   class_unregister(ebbcharClass);                          // unregister the device class
+   //class_unregister(ebbcharClass);                          // unregister the device class
    class_destroy(ebbcharClass);                             // remove the device class
    unregister_chrdev(majorNumber, DEVICE_NAME);             // unregister the major number
 }
